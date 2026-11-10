@@ -19,20 +19,22 @@ jobs:
     container:
       image: barichello/godot-ci:4.3
 
+    env:
+      HOME: /root
+      ANDROID_HOME: /usr/lib/android-sdk
+      ANDROID_SDK_ROOT: /usr/lib/android-sdk
+
     steps:
       - name: Download source code
         uses: actions/checkout@v4
 
-      - name: Prepare Godot Android
+      - name: Prepare Godot settings
         shell: bash
         run: |
-          mkdir -p "$HOME/.config/godot"
-          mkdir -p "$HOME/.local/share/godot/export_templates"
+          mkdir -p /root/.config/godot
+          mkdir -p /root/.local/share/godot/export_templates
 
-          cp -a /root/.config/godot/. "$HOME/.config/godot/"
-          cp -a /root/.local/share/godot/export_templates/. "$HOME/.local/share/godot/export_templates/"
-
-          cat > "$HOME/.config/godot/editor_settings-4.3.tres" <<'EOF'
+          cat > /root/.config/godot/editor_settings-4.3.tres <<'EOF'
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
@@ -41,12 +43,9 @@ jobs:
           export/android/debug_keystore = "/root/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
-          export/android/force_system_user = false
-          export/android/timestamping_authority_url = ""
-          export/android/shutdown_adb_on_exit = true
           EOF
 
-      - name: Install Android SDK for Godot 4.3
+      - name: Install Android SDK
         shell: bash
         run: |
           yes | sdkmanager --sdk_root=/usr/lib/android-sdk --licenses || true
@@ -59,16 +58,32 @@ jobs:
             "cmake;3.10.2.4988404" \
             "ndk;23.2.8568313"
 
-      - name: Verify Android SDK
+      - name: Check Android requirements
         shell: bash
         run: |
+          echo "=== GODOT ==="
+          godot --version
+
+          echo "=== JAVA ==="
+          java -version
+
+          echo "=== ANDROID SDK ==="
           test -d /usr/lib/android-sdk/build-tools/34.0.0
           test -d /usr/lib/android-sdk/platforms/android-34
           test -d /usr/lib/android-sdk/platform-tools
           test -d /usr/lib/android-sdk/ndk/23.2.8568313
+
+          echo "=== EXPORT TEMPLATES ==="
+          ls -lah /root/.local/share/godot/export_templates/
+          find /root/.local/share/godot/export_templates -maxdepth 2 -type f
+
+          test -f /root/.local/share/godot/export_templates/4.3.stable/android_debug.apk
+          test -f /root/.local/share/godot/export_templates/4.3.stable/android_release.apk
+
+          echo "=== DEBUG KEYSTORE ==="
           test -f /root/debug.keystore
-          java -version
-          godot --version
+          keytool -list -keystore /root/debug.keystore \
+            -storepass android -alias androiddebugkey
 
       - name: Import project
         shell: bash
