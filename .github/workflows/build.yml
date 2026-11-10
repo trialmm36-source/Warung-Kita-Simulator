@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: barichello/godot-ci:4.3.0
+      image: barichello/godot-ci:4.3
 
     steps:
       - name: Download source code
