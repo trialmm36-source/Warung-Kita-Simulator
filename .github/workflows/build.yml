@@ -1,0 +1,43 @@
+
+name: Build Warung Kita Simulator APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'project.godot'
+      - 'export_presets.cfg'
+      - 'scenes/**'
+      - 'scripts/**'
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    container:
+      image: barichello/godot-ci:4.3.0
+
+    steps:
+      - name: Download source code
+        uses: actions/checkout@v4
+
+      - name: Check Android export preset
+        run: |
+          if [ ! -f export_presets.cfg ]; then
+            echo "File export_presets.cfg belum tersedia."
+            exit 1
+          fi
+
+      - name: Build APK
+        run: |
+          mkdir -p build
+          godot --headless --verbose --path . \
+            --export-debug "Android" \
+            build/WarungKitaSimulator.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Warung-Kita-Simulator-APK
+          path: build/WarungKitaSimulator.apk
