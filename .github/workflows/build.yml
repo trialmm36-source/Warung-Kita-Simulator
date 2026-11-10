@@ -60,34 +60,7 @@ jobs:
       - name: Enable ETC2 ASTC
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("project.godot")
-          content = path.read_text()
-
-          section = "[rendering]"
-          setting = "textures/vram_compression/import_etc2_astc=true"
-
-          if section not in content:
-              content += "\n[rendering]\n" + setting + "\n"
-          elif setting not in content:
-              lines = content.splitlines()
-              index = lines.index(section) + 1
-
-              while index < len(lines) and not lines[index].startswith("["):
-                  if lines[index].startswith("textures/vram_compression/import_etc2_astc="):
-                      lines[index] = setting
-                      break
-                  index += 1
-              else:
-                  lines.insert(index, setting)
-
-              content = "\n".join(lines) + "\n"
-
-          path.write_text(content)
-          print("ETC2/ASTC enabled.")
-          PY
+          sed -i '/^\[rendering\]/a textures/vram_compression/import_etc2_astc=true' project.godot
 
       - name: Import project
         shell: bash
