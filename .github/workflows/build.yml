@@ -32,7 +32,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p /root/.config/godot
-          mkdir -p /root/.local/share/godot/export_templates
 
           cat > /root/.config/godot/editor_settings-4.3.tres <<'EOF'
           [gd_resource type="EditorSettings" format=3]
@@ -58,32 +57,37 @@ jobs:
             "cmake;3.10.2.4988404" \
             "ndk;23.2.8568313"
 
-      - name: Check Android requirements
+      - name: Enable ETC2 ASTC
         shell: bash
         run: |
-          echo "=== GODOT ==="
-          godot --version
+          python3 - <<'PY'
+          from pathlib import Path
 
-          echo "=== JAVA ==="
-          java -version
+          path = Path("project.godot")
+          content = path.read_text()
 
-          echo "=== ANDROID SDK ==="
-          test -d /usr/lib/android-sdk/build-tools/34.0.0
-          test -d /usr/lib/android-sdk/platforms/android-34
-          test -d /usr/lib/android-sdk/platform-tools
-          test -d /usr/lib/android-sdk/ndk/23.2.8568313
+          section = "[rendering]"
+          setting = "textures/vram_compression/import_etc2_astc=true"
 
-          echo "=== EXPORT TEMPLATES ==="
-          ls -lah /root/.local/share/godot/export_templates/
-          find /root/.local/share/godot/export_templates -maxdepth 2 -type f
+          if section not in content:
+              content += "\n[rendering]\n" + setting + "\n"
+          elif setting not in content:
+              lines = content.splitlines()
+              index = lines.index(section) + 1
 
-          test -f /root/.local/share/godot/export_templates/4.3.stable/android_debug.apk
-          test -f /root/.local/share/godot/export_templates/4.3.stable/android_release.apk
+              while index < len(lines) and not lines[index].startswith("["):
+                  if lines[index].startswith("textures/vram_compression/import_etc2_astc="):
+                      lines[index] = setting
+                      break
+                  index += 1
+              else:
+                  lines.insert(index, setting)
 
-          echo "=== DEBUG KEYSTORE ==="
-          test -f /root/debug.keystore
-          keytool -list -keystore /root/debug.keystore \
-            -storepass android -alias androiddebugkey
+              content = "\n".join(lines) + "\n"
+
+          path.write_text(content)
+          print("ETC2/ASTC enabled.")
+          PY
 
       - name: Import project
         shell: bash
@@ -97,6 +101,12 @@ jobs:
           godot --headless --verbose --path . \
             --export-debug "Android" \
             build/WarungKitaSimulator.apk
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -s build/WarungKitaSimulator.apk
+          ls -lh build/WarungKitaSimulator.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
