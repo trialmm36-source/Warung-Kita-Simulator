@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare Godot Android
+        shell: bash
         run: |
           mkdir -p "$HOME/.config/godot"
           mkdir -p "$HOME/.local/share/godot/export_templates"
@@ -46,9 +47,9 @@ jobs:
           EOF
 
       - name: Install Android SDK for Godot 4.3
+        shell: bash
         run: |
-          set +o pipefail
-          yes | sdkmanager --sdk_root=/usr/lib/android-sdk --licenses
+          yes | sdkmanager --sdk_root=/usr/lib/android-sdk --licenses || true
 
           sdkmanager --sdk_root=/usr/lib/android-sdk \
             "platform-tools" \
@@ -59,6 +60,7 @@ jobs:
             "ndk;23.2.8568313"
 
       - name: Verify Android SDK
+        shell: bash
         run: |
           test -d /usr/lib/android-sdk/build-tools/34.0.0
           test -d /usr/lib/android-sdk/platforms/android-34
@@ -69,10 +71,12 @@ jobs:
           godot --version
 
       - name: Import project
+        shell: bash
         run: |
           godot --headless --path . --editor --import
 
       - name: Build APK
+        shell: bash
         run: |
           mkdir -p build
           godot --headless --verbose --path . \
