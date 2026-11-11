@@ -59,7 +59,7 @@ func _build_world() -> void:
             _box("Papan rak", Vector3(x, shelf_y, -0.15), Vector3(0.85, 0.09, 4.4), Color(0.64, 0.42, 0.23))
         for row in range(3):
             for col in range(5):
-                var product_color := [Color(0.86,0.22,0.12), Color(0.95,0.72,0.12), Color(0.18,0.48,0.76), Color(0.24,0.65,0.34)][(row + col) % 4]
+                var product_color: Color = [Color(0.86,0.22,0.12), Color(0.95,0.72,0.12), Color(0.18,0.48,0.76), Color(0.24,0.65,0.34)][(row + col) % 4]
                 _box("Kemasan dagangan", Vector3(x + float(side) * 0.12, 0.72 + float(row) * 0.55, -1.7 + float(col) * 0.72), Vector3(0.28, 0.36, 0.28), product_color)
 
     # Beberapa rumah sederhana di luar warung untuk memberi konteks lingkungan.
