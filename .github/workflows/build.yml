@@ -1,10 +1,10 @@
+
 name: Build Warung Kita Simulator APK
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'WarungKitaSimulator_Fondasi_0_2.zip'
       - 'project.godot'
       - 'export_presets.cfg'
       - 'scenes/**'
@@ -28,56 +28,15 @@ jobs:
       - name: Download source code
         uses: actions/checkout@v4
 
-      - name: Install Python
+      - name: Verify project files
         shell: bash
         run: |
-          apt-get update
-          apt-get install -y python3
-
-      - name: Extract and fix project
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import zipfile
-          import shutil
-          import os
-          import re
-          from pathlib import Path
-
-          archive = "WarungKitaSimulator_Fondasi_0_2.zip"
-          folder = "WarungKitaSimulator_Versi_0_2"
-
-          if not os.path.isfile(archive):
-              raise SystemExit("Project ZIP tidak ditemukan")
-
-          with zipfile.ZipFile(archive, "r") as z:
-              z.extractall("extracted")
-
-          source = Path("extracted") / folder
-
-          if not (source / "project.godot").is_file():
-              raise SystemExit("project.godot tidak ditemukan")
-
-          shutil.copytree(source, ".", dirs_exist_ok=True)
-
-          script = Path("scripts/main.gd")
-          if not script.is_file():
-              raise SystemExit("scripts/main.gd tidak ditemukan")
-
-          content = script.read_text(encoding="utf-8")
-
-          content, count = re.subn(
-              r'(\bvar\s+product_color)\s*:=',
-              r'\1: Color =',
-              content
-          )
-
-          if count == 0:
-              raise SystemExit("Deklarasi product_color tidak ditemukan; periksa kode sumber")
-
-          script.write_text(content, encoding="utf-8")
-          print("Perbaikan product_color diterapkan:", count)
-          PY
+          test -f project.godot
+          test -f scenes/main.tscn
+          test -f scripts/main.gd
+          test -f scripts/player.gd
+          test -f export_presets.cfg
+          echo "Semua file proyek ditemukan."
 
       - name: Prepare Godot settings
         shell: bash
@@ -118,10 +77,22 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
+
           godot --headless --path . --editor --import 2>&1 | tee build/import.log
 
           if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" build/import.log; then
-            echo "Kesalahan skrip ditemukan. Build dihentikan."
+            echo "Kesalahan skrip ditemukan."
+            exit 1
+          fi
+
+      - name: Test main scene
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --quit-after 3 2>&1 | tee build/runtime-check.log
+
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" build/runtime-check.log; then
+            echo "Kesalahan saat menjalankan scene ditemukan."
             exit 1
           fi
 
