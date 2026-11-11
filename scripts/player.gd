@@ -1,82 +1,54 @@
 extends CharacterBody3D
 
-@export var move_speed := 4.0
-@export var look_sensitivity := 0.004
-@export var gravity := 18.0
+@export var move_speed: float = 4.0
+@export var sprint_multiplier: float = 1.55
+@export var look_sensitivity: float = 0.003
+@export var gravity: float = 18.0
 
+var move_input := Vector2.ZERO
+var look_delta := Vector2.ZERO
+var sprinting := false
+var camera_pivot: Node3D
 var camera: Camera3D
-var interaction_ray: RayCast3D
-var joystick_vector := Vector2.ZERO
-var move_touch_id := -1
-var look_touch_id := -1
-var move_origin := Vector2.ZERO
-var move_current := Vector2.ZERO
-var last_look := Vector2.ZERO
-var pitch := 0.0
 
 func _ready() -> void:
-    camera = get_node("Camera3D")
-    interaction_ray = camera.get_node("InteractionRay")
-    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    camera_pivot = Node3D.new()
+    camera_pivot.position = Vector3(0, 1.62, 0)
+    add_child(camera_pivot)
 
-func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-        _rotate_camera(event.relative)
-    elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-    elif event is InputEventScreenTouch:
-        var w := get_viewport().get_visible_rect().size.x
-        if event.pressed:
-            if event.position.x < w * 0.48 and move_touch_id == -1:
-                move_touch_id = event.index
-                move_origin = event.position
-                move_current = event.position
-            elif event.position.x >= w * 0.48 and look_touch_id == -1:
-                look_touch_id = event.index
-                last_look = event.position
-        else:
-            if event.index == move_touch_id:
-                move_touch_id = -1
-                joystick_vector = Vector2.ZERO
-            if event.index == look_touch_id:
-                look_touch_id = -1
-    elif event is InputEventScreenDrag:
-        if event.index == move_touch_id:
-            move_current = event.position
-            var delta := (move_current - move_origin) / 75.0
-            joystick_vector = delta.limit_length(1.0)
-        elif event.index == look_touch_id:
-            _rotate_camera(event.relative)
+    camera = Camera3D.new()
+    camera.current = true
+    camera.fov = 78.0
+    camera_pivot.add_child(camera)
 
-func _rotate_camera(delta: Vector2) -> void:
-    rotate_y(-delta.x * look_sensitivity)
-    pitch = clamp(pitch - delta.y * look_sensitivity, deg_to_rad(-75), deg_to_rad(75))
-    camera.rotation.x = pitch
+func set_move_input(value: Vector2) -> void:
+    move_input = value.limit_length(1.0)
+
+func add_look_input(delta: Vector2) -> void:
+    look_delta += delta
 
 func _physics_process(delta: float) -> void:
-    var input_vec := joystick_vector
-    input_vec.y = -input_vec.y
-    input_vec.x += float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
-    input_vec.y += float(Input.is_key_pressed(KEY_W)) - float(Input.is_key_pressed(KEY_S))
-    input_vec = input_vec.limit_length(1.0)
+    rotate_y(-look_delta.x * look_sensitivity)
+    camera_pivot.rotation.x = clamp(
+        camera_pivot.rotation.x - look_delta.y * look_sensitivity,
+        deg_to_rad(-75.0), deg_to_rad(75.0)
+    )
+    look_delta = Vector2.ZERO
 
-    var direction := (transform.basis * Vector3(input_vec.x, 0, -input_vec.y)).normalized()
-    velocity.x = direction.x * move_speed
-    velocity.z = direction.z * move_speed
+    var input_dir := Vector3(move_input.x, 0.0, move_input.y)
+    var direction := (global_transform.basis * input_dir).normalized()
+    var speed := move_speed * (sprint_multiplier if sprinting else 1.0)
+
+    if direction.length() > 0.01:
+        velocity.x = direction.x * speed
+        velocity.z = direction.z * speed
+    else:
+        velocity.x = move_toward(velocity.x, 0.0, move_speed * 5.0 * delta)
+        velocity.z = move_toward(velocity.z, 0.0, move_speed * 5.0 * delta)
+
     if not is_on_floor():
         velocity.y -= gravity * delta
     else:
         velocity.y = 0.0
-    move_and_slide()
 
-func interact() -> void:
-    interaction_ray.force_raycast_update()
-    if interaction_ray.is_colliding():
-        var target := interaction_ray.get_collider()
-        if target.has_meta("item_name"):
-            var item_name: String = target.get_meta("item_name")
-            get_parent().show_message("Kamu memeriksa: " + item_name)
-        else:
-            get_parent().show_message("Tidak ada barang yang bisa diambil di sini.")
-    else:
-        get_parent().show_message("Dekati rak atau barang untuk berinteraksi.")
+    move_and_slide()
