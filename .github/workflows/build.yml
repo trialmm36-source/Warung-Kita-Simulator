@@ -1,4 +1,3 @@
-
 name: Build Warung Kita Simulator APK
 
 on:
@@ -35,13 +34,15 @@ jobs:
           apt-get update
           apt-get install -y python3
 
-      - name: Extract new project ZIP
+      - name: Extract and fix project
         shell: bash
         run: |
           python3 - <<'PY'
           import zipfile
           import shutil
           import os
+          import re
+          from pathlib import Path
 
           archive = "WarungKitaSimulator_Fondasi_0_2.zip"
           folder = "WarungKitaSimulator_Versi_0_2"
@@ -52,13 +53,30 @@ jobs:
           with zipfile.ZipFile(archive, "r") as z:
               z.extractall("extracted")
 
-          source = os.path.join("extracted", folder)
+          source = Path("extracted") / folder
 
-          if not os.path.isfile(os.path.join(source, "project.godot")):
-              raise SystemExit("project.godot tidak ditemukan di dalam ZIP")
+          if not (source / "project.godot").is_file():
+              raise SystemExit("project.godot tidak ditemukan")
 
           shutil.copytree(source, ".", dirs_exist_ok=True)
-          print("Proyek versi 0.2 berhasil diekstrak")
+
+          script = Path("scripts/main.gd")
+          if not script.is_file():
+              raise SystemExit("scripts/main.gd tidak ditemukan")
+
+          content = script.read_text(encoding="utf-8")
+
+          content, count = re.subn(
+              r'(\bvar\s+product_color)\s*:=',
+              r'\1: Color =',
+              content
+          )
+
+          if count == 0:
+              raise SystemExit("Deklarasi product_color tidak ditemukan; periksa kode sumber")
+
+          script.write_text(content, encoding="utf-8")
+          print("Perbaikan product_color diterapkan:", count)
           PY
 
       - name: Prepare Godot settings
@@ -95,10 +113,17 @@ jobs:
         run: |
           sed -i '/^\[rendering\]/a textures/vram_compression/import_etc2_astc=true' project.godot
 
-      - name: Import project
+      - name: Check Godot scripts
         shell: bash
         run: |
-          godot --headless --path . --editor --import
+          mkdir -p build
+          set -o pipefail
+          godot --headless --path . --editor --import 2>&1 | tee build/import.log
+
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" build/import.log; then
+            echo "Kesalahan skrip ditemukan. Build dihentikan."
+            exit 1
+          fi
 
       - name: Build APK
         shell: bash
