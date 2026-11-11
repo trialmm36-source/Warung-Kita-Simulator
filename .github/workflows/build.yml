@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'WarungKitaSimulator_Fondasi_0_2.zip'
       - 'project.godot'
       - 'export_presets.cfg'
       - 'scenes/**'
@@ -27,6 +28,33 @@ jobs:
     steps:
       - name: Download source code
         uses: actions/checkout@v4
+
+      - name: Extract new project ZIP
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          import shutil
+          import os
+
+          archive = "WarungKitaSimulator_Fondasi_0_2.zip"
+          folder = "WarungKitaSimulator_Versi_0_2"
+
+          if not os.path.isfile(archive):
+              raise SystemExit("Project ZIP tidak ditemukan")
+
+          with zipfile.ZipFile(archive, "r") as z:
+              z.extractall("extracted")
+
+          source = os.path.join("extracted", folder)
+
+          if not os.path.isfile(os.path.join(source, "project.godot")):
+              raise SystemExit("project.godot tidak ditemukan di dalam ZIP")
+
+          shutil.copytree(source, ".", dirs_exist_ok=True)
+          print("Proyek versi 0.2 berhasil diekstrak")
+
+          PY
 
       - name: Prepare Godot settings
         shell: bash
